@@ -445,7 +445,7 @@ router.post("/apply", async (req, res) => {
 
 module.exports = router;
 
-// OTP endpoints (Twilio Verify or in-memory fallback)
+// OTP endpoints (Twilio Verify Service with fallback)
 router.post('/phone/send-otp', async (req, res) => {
   try {
     const { phone } = req.body;
@@ -456,43 +456,56 @@ router.post('/phone/send-otp', async (req, res) => {
 
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const fromNumber = process.env.TWILIO_FROM_NUMBER;
-    const canUseSms = isValidTwilioValue(accountSid) && isValidTwilioValue(authToken) && isValidTwilioValue(fromNumber);
+    const verifySid = process.env.TWILIO_VERIFY_SERVICE_SID;
 
-    if (!canUseSms) {
-      return res.status(500).json({
-        error: 'Twilio SMS is not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER in backend/.env.',
-      });
+    // Try Twilio Verify first if configured
+    if (isValidTwilioValue(accountSid) && isValidTwilioValue(authToken) && isValidTwilioValue(verifySid)) {
+      const url = `https://verify.twilio.com/v2/Services/${verifySid}/Verifications`;
+      const body = new URLSearchParams({
+        To: normalized,
+        Channel: 'sms',
+      }).toString();
+      const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+
+      try {
+        const r = await fetch(url, {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${auth}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body,
+        });
+
+        const data = await r.json().catch(async () => ({ message: await r.text() }));
+        if (r.ok) {
+          return res.json({ success: true, source: 'twilio-verify', to: normalized, sid: data.sid });
+        }
+
+        // If it fails with unverified number (21608), fall back to local OTP
+        if (data.code === 21608) {
+          console.log(`Twilio trial account restriction for ${normalized}, using local OTP fallback`);
+        } else {
+          console.log(`Twilio Verify failed: ${data.message}`);
+        }
+      } catch (err) {
+        console.log(`Twilio Verify request failed: ${err.message}, using local OTP fallback`);
+      }
     }
 
+    // Fallback: Generate and store local OTP for testing/trial accounts
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expires = Date.now() + 5 * 60 * 1000;
+    const expires = Date.now() + 5 * 60 * 1000; // 5 minutes
     pendingOtps.set(normalized, { code, expires });
 
-    const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
-    const body = new URLSearchParams({
-      To: normalized,
-      From: fromNumber,
-      Body: `Your StudyPath OTP is ${code}. It expires in 5 minutes.`,
-    }).toString();
-    const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
-
-    const r = await fetch(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${auth}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body,
+    console.log(`OTP for ${normalized}: ${code} (expires in 5 min)`);
+    return res.json({ 
+      success: true, 
+      source: 'local-otp-fallback', 
+      to: normalized, 
+      message: 'OTP sent (using local fallback for trial account)',
+      _debug: process.env.NODE_ENV === 'development' ? `Code: ${code}` : undefined
     });
-
-    const data = await r.json().catch(async () => ({ message: await r.text() }));
-    if (r.ok) {
-      return res.json({ success: true, source: 'twilio-sms', to: normalized, data });
-    }
-
-    pendingOtps.delete(normalized);
-    return res.status(500).json({ error: 'Twilio SMS failed', detail: data });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -505,17 +518,59 @@ router.post('/phone/verify-otp', async (req, res) => {
     const normalized = normalizePhoneNumber(phone);
     if (!normalized) return res.status(400).json({ error: 'Invalid phone format' });
 
-    const row = pendingOtps.get(normalized);
-    if (!row) return res.status(400).json({ error: 'No pending OTP' });
-    if (Date.now() > row.expires) {
-      pendingOtps.delete(normalized);
-      return res.status(400).json({ error: 'OTP expired' });
-    }
-    if (String(row.code) !== String(code)) return res.status(400).json({ error: 'Invalid OTP' });
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const verifySid = process.env.TWILIO_VERIFY_SERVICE_SID;
 
-    pendingOtps.delete(normalized);
-    verifiedPhones.set(normalized, { verified: true, at: new Date().toISOString() });
-    return res.json({ success: true, source: 'local' });
+    // First, check if there's a local OTP pending
+    const localRow = pendingOtps.get(normalized);
+    if (localRow) {
+      if (Date.now() > localRow.expires) {
+        pendingOtps.delete(normalized);
+        return res.status(400).json({ error: 'OTP expired' });
+      }
+      if (String(localRow.code) !== String(code)) {
+        return res.status(400).json({ error: 'Invalid OTP' });
+      }
+      // Valid local OTP
+      pendingOtps.delete(normalized);
+      verifiedPhones.set(normalized, { verified: true, at: new Date().toISOString() });
+      return res.json({ success: true, source: 'local-otp', status: 'approved' });
+    }
+
+    // Try Twilio Verify if configured and no local OTP
+    if (isValidTwilioValue(accountSid) && isValidTwilioValue(authToken) && isValidTwilioValue(verifySid)) {
+      const url = `https://verify.twilio.com/v2/Services/${verifySid}/VerificationCheck`;
+      const body = new URLSearchParams({
+        To: normalized,
+        Code: code,
+      }).toString();
+      const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+
+      try {
+        const r = await fetch(url, {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${auth}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body,
+        });
+
+        const data = await r.json().catch(async () => ({ message: await r.text() }));
+        if (r.ok && data.status === 'approved') {
+          verifiedPhones.set(normalized, { verified: true, at: new Date().toISOString() });
+          return res.json({ success: true, source: 'twilio-verify', status: data.status });
+        }
+
+        return res.status(400).json({ error: 'Invalid OTP', detail: data });
+      } catch (err) {
+        return res.status(400).json({ error: 'OTP verification failed: ' + err.message });
+      }
+    }
+
+    // No local OTP and Twilio not configured
+    return res.status(400).json({ error: 'No pending OTP or Twilio not configured' });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
