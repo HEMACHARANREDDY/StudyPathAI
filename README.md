@@ -16,7 +16,7 @@ npm install
 npm run dev   # or npm start
 
 **1. Clone the repo**
-git clone https://github.com/YOUR_USERNAME/studypath-ai.git
+git clone https://github.com/HEMACHARANREDDY/StudyPathAI.git
 cd studypath-ai
 
 **2. Start the backend**
