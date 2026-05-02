@@ -127,8 +127,13 @@ export default function DashboardPage() {
   if (!loaded) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center px-4">
-        <div className="font-display text-3xl text-white mb-4">Loading...</div>
-        <p className="text-gray-400 mb-6">Fetching your profile data...</p>
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className="w-12 h-12 rounded-full border-4 border-teal-400/20 border-t-teal-400 mb-4"
+        />
+        <div className="font-display text-3xl text-white mb-4 animate-pulse">Loading...</div>
+        <p className="text-gray-400 mb-6">Fetching your personalized study path...</p>
       </div>
     );
   }

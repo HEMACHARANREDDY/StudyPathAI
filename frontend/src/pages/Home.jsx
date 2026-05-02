@@ -55,13 +55,18 @@ export default function Home() {
           {features.map((f, i) => (
             <motion.div key={f.title} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 + 0.2 }}
-              className="glass-card hover-glow p-6 hover:scale-105 transition-all duration-300 cursor-pointer group"
+              whileHover={{ y: -8, boxShadow: `0 20px 40px ${f.color}40` }}
+              className="glass-card hover-glow p-6 transition-all duration-300 cursor-pointer group relative overflow-hidden"
               style={{ borderColor: `${f.color}30` }}>
-              <div className="text-4xl mb-4 text-teal-400">{f.icon}</div>
-              <h3 className="font-semibold text-white text-lg mb-2 group-hover:text-teal-400 transition-colors"
-                style={{ "--tw-text-opacity": 1 }}>{f.title}</h3>
-              <p className="text-gray-400 text-sm leading-relaxed">{f.desc}</p>
-              <div className="mt-4 h-0.5 w-0 group-hover:w-full transition-all duration-500 rounded"
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity duration-300 pointer-events-none"
+                style={{ background: f.color }} />
+              <div className="text-4xl mb-4 transition-all duration-300 group-hover:scale-110" style={{ color: f.color }}>
+                {f.icon}
+              </div>
+              <h3 className="font-semibold text-white text-lg mb-2 group-hover:text-opacity-100 transition-colors duration-300"
+                style={{ color: "white" }}>{f.title}</h3>
+              <p className="text-gray-400 text-sm leading-relaxed group-hover:text-gray-300 transition-colors duration-300">{f.desc}</p>
+              <div className="mt-4 h-1 w-0 group-hover:w-full transition-all duration-500 rounded"
                 style={{ background: f.color }} />
             </motion.div>
           ))}
