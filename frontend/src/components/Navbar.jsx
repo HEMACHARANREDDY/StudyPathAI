@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export default function Navbar() {
   const { student, updateStudent } = useStudent();
-  const [theme, setTheme] = useState(() => localStorage.getItem("studyPathTheme") || "dark");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -30,11 +29,6 @@ export default function Navbar() {
   ];
 
   const allLinks = [...mainLinks, ...toolLinks];
-
-  useEffect(() => {
-    document.body.classList.toggle("theme-light", theme === "light");
-    localStorage.setItem("studyPathTheme", theme);
-  }, [theme]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -164,14 +158,6 @@ export default function Navbar() {
           </motion.div>
         )}
         
-        <button 
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")} 
-          className="w-10 h-10 rounded-xl flex items-center justify-center glass-card hover:bg-white/10 transition-colors border border-teal-400/20"
-          title="Toggle Theme"
-        >
-          {theme === "dark" ? "☀️" : "🌙"}
-        </button>
-        
         {student.isAuthenticated ? (
           <button onClick={handleLogout} className="btn-secondary text-sm">
             Logout
@@ -190,12 +176,6 @@ export default function Navbar() {
 
       {/* Mobile Menu Button */}
       <div className="flex lg:hidden items-center gap-3">
-        <button 
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")} 
-          className="w-10 h-10 rounded-xl flex items-center justify-center glass-card border border-teal-400/20"
-        >
-          {theme === "dark" ? "☀️" : "🌙"}
-        </button>
         
         <button 
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}

@@ -501,10 +501,10 @@ router.post('/phone/send-otp', async (req, res) => {
     console.log(`OTP for ${normalized}: ${code} (expires in 5 min)`);
     return res.json({ 
       success: true, 
-      source: 'local-otp-fallback', 
+      source: 'local', 
       to: normalized, 
       message: 'OTP sent (using local fallback for trial account)',
-      _debug: process.env.NODE_ENV === 'development' ? `Code: ${code}` : undefined
+      code: code
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
