@@ -1,19 +1,25 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useStudent } from "../context/StudentContext";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Navbar() {
   const { student, updateStudent } = useStudent();
   const [theme, setTheme] = useState(() => localStorage.getItem("studyPathTheme") || "dark");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const dropdownRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const links = [
+
+  const mainLinks = [
     { path: "/", label: "Home" },
     { path: "/dashboard", label: "Dashboard" },
     { path: "/ai-credibility", label: "About AI" },
+  ];
+
+  const toolLinks = [
     { path: "/sop", label: "SOP Studio" },
     { path: "/loan", label: "Loan Bridge" },
     { path: "/scholarships", label: "Scholarships" },
@@ -22,6 +28,8 @@ export default function Navbar() {
     { path: "/budget", label: "Budget Calc" },
     { path: "/interview", label: "Interview Prep" },
   ];
+
+  const allLinks = [...mainLinks, ...toolLinks];
 
   useEffect(() => {
     document.body.classList.toggle("theme-light", theme === "light");
@@ -34,6 +42,16 @@ export default function Navbar() {
     };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setToolsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleLogout = () => {
@@ -61,96 +79,129 @@ export default function Navbar() {
   };
 
   return (
-    <nav className={`sticky top-0 z-50 px-4 sm:px-6 py-4 flex items-center justify-between border-b transition-all duration-300 ${
+    <nav className={`sticky top-0 z-50 px-4 sm:px-8 py-3 flex items-center justify-between border-b transition-all duration-300 ${
       scrolled 
-        ? "glass border-teal-400/20 backdrop-blur-md" 
-        : "glass border-teal-400/10"
+        ? "glass border-teal-400/20 backdrop-blur-xl" 
+        : "glass border-transparent backdrop-blur-sm"
     }`}>
-      <Link to="/" className="flex items-center gap-2 hover-glow">
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-navy-900 font-bold text-sm animate-bounce-light" style={{ background: "#00D4B8" }}>S</div>
-        <span className="font-display text-lg font-bold text-white hidden sm:inline">
-          StudyPath <span style={{ color: "#00D4B8" }}>AI</span>
+      <Link to="/" className="flex items-center gap-3 hover-glow group">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-navy-900 font-bold text-lg bg-gradient-to-br from-teal-400 to-teal-600 shadow-lg group-hover:scale-110 transition-transform duration-300">
+          S
+        </div>
+        <span className="font-display text-xl font-bold text-white hidden sm:inline tracking-wide">
+          StudyPath <span className="gradient-text">AI</span>
         </span>
-        <span className="font-display text-lg font-bold text-white sm:hidden" style={{ color: "#00D4B8" }}>SA</span>
       </Link>
 
       {/* Desktop Menu */}
-      <div className="hidden lg:flex items-center gap-1 px-4 py-2 rounded-full" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(0,212,184,0.1)" }}>
-        {links.map((l) => (
+      <div className="hidden lg:flex items-center gap-2 px-6 py-2 rounded-2xl glass-card border border-teal-400/10">
+        {mainLinks.map((l) => (
           <Link key={l.path} to={l.path}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-300 ${
+            className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-300 ${
               location.pathname === l.path 
-                ? "text-navy-900 font-semibold" 
-                : "text-gray-400 hover:text-white"
-            }`}
-            style={{
-              background: location.pathname === l.path ? "#00D4B8" : "transparent",
-              color: location.pathname === l.path ? "#050E1F" : undefined
-            }}>
+                ? "bg-teal-400 text-navy-900 shadow-md shadow-teal-400/20" 
+                : "text-gray-300 hover:text-white hover:bg-white/5"
+            }`}>
             {l.label}
           </Link>
         ))}
+
+        <div className="relative" ref={dropdownRef}>
+          <button 
+            onClick={() => setToolsOpen(!toolsOpen)}
+            className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-300 flex items-center gap-1 ${
+              toolLinks.some(l => l.path === location.pathname)
+                ? "bg-teal-400/20 text-teal-400"
+                : "text-gray-300 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            Tools
+            <svg className={`w-4 h-4 transition-transform duration-200 ${toolsOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+          </button>
+          
+          <AnimatePresence>
+            {toolsOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className="absolute top-full mt-3 w-48 glass-card border border-teal-400/20 rounded-xl overflow-hidden shadow-2xl py-2 flex flex-col"
+              >
+                {toolLinks.map((l) => (
+                  <Link key={l.path} to={l.path}
+                    onClick={() => setToolsOpen(false)}
+                    className={`px-4 py-2.5 text-sm transition-all duration-200 ${
+                      location.pathname === l.path
+                        ? "bg-teal-400/10 text-teal-400 font-semibold border-l-2 border-teal-400"
+                        : "text-gray-300 hover:bg-white/5 hover:text-white border-l-2 border-transparent"
+                    }`}
+                  >
+                    {l.label}
+                  </Link>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Desktop Auth & Theme */}
-      <div className="hidden sm:flex items-center gap-3">
+      <div className="hidden sm:flex items-center gap-4">
         {student.isAuthenticated && student.name && (
           <motion.div 
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full glass-card"
+            className="flex items-center gap-3 px-4 py-2 rounded-full glass-card border border-teal-400/20"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3 }}
           >
-            <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: "#00D4B8", color: "#050E1F" }}>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-teal-400 text-navy-900 shadow-sm">
               {student.name[0]}
             </div>
-            <span className="text-sm text-white hidden sm:inline">{student.name}</span>
+            <span className="text-sm font-medium text-white">{student.name}</span>
             {student.streakDays > 0 && (
-              <span className="text-xs" style={{ color: "#FFD166" }}>🔥</span>
+              <span className="text-xs flex items-center gap-1 bg-white/5 px-2 py-1 rounded-full text-gold">🔥 {student.streakDays}</span>
             )}
           </motion.div>
         )}
         
         <button 
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")} 
-          className="btn-secondary text-sm py-2 px-4"
+          className="w-10 h-10 rounded-xl flex items-center justify-center glass-card hover:bg-white/10 transition-colors border border-teal-400/20"
+          title="Toggle Theme"
         >
           {theme === "dark" ? "☀️" : "🌙"}
         </button>
         
         {student.isAuthenticated ? (
-          <button onClick={handleLogout} className="btn-secondary text-sm py-2 px-4">
+          <button onClick={handleLogout} className="btn-secondary text-sm">
             Logout
           </button>
         ) : (
-          <>
+          <div className="flex items-center gap-3">
             <Link to="/login">
-              <button className="btn-secondary text-sm py-2 px-4">Sign In</button>
+              <button className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Sign In</button>
             </Link>
             <Link to="/onboarding">
-              <button className="btn-primary text-sm py-2 px-4">Get Started</button>
+              <button className="btn-primary text-sm shadow-lg shadow-teal-400/20">Get Started</button>
             </Link>
-          </>
+          </div>
         )}
       </div>
 
       {/* Mobile Menu Button */}
-      <div className="flex lg:hidden items-center gap-2">
+      <div className="flex lg:hidden items-center gap-3">
         <button 
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")} 
-          className="p-2 rounded-lg hover:glass transition-all"
+          className="w-10 h-10 rounded-xl flex items-center justify-center glass-card border border-teal-400/20"
         >
           {theme === "dark" ? "☀️" : "🌙"}
         </button>
         
         <button 
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 rounded-lg hover:glass transition-all"
+          className="w-10 h-10 rounded-xl flex items-center justify-center glass-card border border-teal-400/20 text-white"
         >
-          <motion.div
-            animate={{ rotate: mobileMenuOpen ? 90 : 0 }}
-            transition={{ duration: 0.3 }}
-          >
+          <motion.div animate={{ rotate: mobileMenuOpen ? 90 : 0 }}>
             {mobileMenuOpen ? "✕" : "☰"}
           </motion.div>
         </button>
@@ -160,54 +211,62 @@ export default function Navbar() {
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
-            initial={{ opacity: 0, x: 300 }}
+            initial={{ opacity: 0, x: "100%" }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 300 }}
-            transition={{ duration: 0.3 }}
-            className="absolute top-16 right-4 w-72 glass-card p-4 rounded-xl space-y-2 lg:hidden"
+            exit={{ opacity: 0, x: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="fixed inset-y-0 right-0 w-80 glass-card !rounded-none !border-r-0 border-l border-teal-400/20 p-6 flex flex-col z-50 shadow-2xl lg:hidden"
+            style={{ top: "72px", height: "calc(100vh - 72px)" }}
           >
-            {links.map((l) => (
-              <Link
-                key={l.path}
-                to={l.path}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`block px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                  location.pathname === l.path 
-                    ? "bg-teal-400/20 text-teal-400 border border-teal-400/50"
-                    : "text-gray-300 hover:text-white"
-                }`}
-              >
-                {l.label}
-              </Link>
-            ))}
-            
-            <hr className="border-teal-400/10 my-3" />
-            
-            {student.isAuthenticated ? (
-              <>
-                {student.name && (
-                  <div className="px-4 py-2 text-sm text-gray-300">
-                    Hello, <span className="text-teal-400 font-semibold">{student.name}</span>
-                    {student.streakDays > 0 && <span className="ml-2">🔥 {student.streakDays}</span>}
-                  </div>
-                )}
-                <button 
-                  onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
-                  className="w-full btn-secondary text-sm py-2 px-4 text-left"
+            <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+              {allLinks.map((l) => (
+                <Link
+                  key={l.path}
+                  to={l.path}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                    location.pathname === l.path 
+                      ? "bg-teal-400/10 text-teal-400 border border-teal-400/30"
+                      : "text-gray-300 hover:text-white hover:bg-white/5"
+                  }`}
                 >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
-                  <button className="w-full btn-secondary text-sm py-2 px-4 text-left">Sign In</button>
+                  {l.label}
                 </Link>
-                <Link to="/onboarding" onClick={() => setMobileMenuOpen(false)}>
-                  <button className="w-full btn-primary text-sm py-2 px-4 text-left">Get Started</button>
-                </Link>
-              </>
-            )}
+              ))}
+            </div>
+            
+            <div className="pt-6 mt-6 border-t border-teal-400/10">
+              {student.isAuthenticated ? (
+                <div className="space-y-4">
+                  {student.name && (
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-teal-400 text-navy-900">
+                        {student.name[0]}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold text-white">{student.name}</span>
+                        {student.streakDays > 0 && <span className="text-xs text-gold">🔥 {student.streakDays} Day Streak</span>}
+                      </div>
+                    </div>
+                  )}
+                  <button 
+                    onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                    className="w-full btn-secondary py-3 text-center"
+                  >
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3 flex flex-col">
+                  <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
+                    <button className="w-full btn-secondary py-3">Sign In</button>
+                  </Link>
+                  <Link to="/onboarding" onClick={() => setMobileMenuOpen(false)}>
+                    <button className="w-full btn-primary py-3">Get Started</button>
+                  </Link>
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
