@@ -36,5 +36,15 @@ app.get("/health", (req, res) => res.json({ status: "ok", service: "StudyPath AI
 
 app.use(errorHandler);
 
+const path = require("path");
+
+// Serve static frontend files in production
+const frontendDistPath = path.join(__dirname, "../frontend/dist");
+app.use(express.static(frontendDistPath));
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(frontendDistPath, "index.html"));
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`StudyPath AI backend running on port ${PORT}`));
